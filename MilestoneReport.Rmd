@@ -1,0 +1,315 @@
+---
+title: "Data Science Capstone - Milestone Report"
+author: "Shashank Sane"
+date: "August 8, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Introduction
+
+This is the milestone report for Johns Hopkins University - Data Science Specialization Capstone Project. The goal of the capstone Project is to develop a Shiny application to do next word prediction based on user text input.This report explores the basic characteristics of the text corpus data and also defines the approach to be taken to build predictive text model and to finally build the Shiny Application.
+
+
+## Basic Summary of the data files.
+The data set consists of text files provided by Swiftkey (which is the industry partner for this project). For this project we would only consider the English (en_US) text files provided as we would be doing predictive text modelling for English language. following three files have been provided:
+
+* twitter text dump file: en_US.twitter.txt
+* blogs text dump file: en_US.blogs.txt
+* news text dump file: en_US.news.txt
+
+Following is the basic summary of these files:
+```{r chnuk1,echo=FALSE,message=FALSE,warning=FALSE}
+# load the required libraries
+library(LaF)
+
+# twitter file path
+filePathTwitt <- "en_US\\en_US.twitter.txt"
+# blog file path
+filePathBlog <- "en_US\\en_US.blogs.txt"
+# news file path
+filePathNews <- "en_US\\en_US.news.txt"
+
+# files size for twitter file (in MB)
+twitt_file_size <- round((file.info(filePathTwitt)$size)/(1024*1024),2)
+
+# file size for blog file (in MB)
+blog_file_size <- round((file.info(filePathBlog)$size)/(1024*1024),2)
+
+# file size for news file (in MB)
+news_file_size <- round((file.info(filePathNews)$size)/(1024*1024),2)
+
+# text length of twitter file
+text_length_twitt <- determine_nlines(filePathTwitt)
+# text length of blog file
+text_length_blog <- determine_nlines(filePathBlog)
+# text length of news file
+text_length_news <-determine_nlines(filePathNews)
+
+```
+File Name        | File Size(MB)     |  Number of lines
+-----------------|-------------------|------------------
+en_US.twitter.txt|`r twitt_file_size`|2360148
+en_US.blogs.txt  |`r blog_file_size` |899288
+en_US.news.txt   |`r news_file_size` |1010242
+
+as we can see from above twitter text has largest number of lines, this is because of the size limitation of messages in twitter the messages are small.Blog file has the fewest lines despite having the largest file size as blogs do tend tend to have long lines with large number of words.
+
+The R code for loading and above analysis can be found in point 1. Appendix section.
+
+## Analyze the text data
+The next step is analysis of the data. It is evident from the file size that we won't be able to analyze the entire file content as that would not fit in memory. We would be doing the analysis on Laptop with windows 7, 4GB RAM AND i3 processor. 
+
+we would be doing following steps for analysis of data:
+
+* Random Sampling of data: random sampling of 5% of the twitter,blog and news data to do the initial analysis and modeling.
+* Tokenize each sample based on sentences first, while tokenizing sentences the following additional steps are followed:
+      * remove any url's.
+      * remove numbers as they would not be useful in text predictions.
+      * remove punctuation as they would not be useful in text prediction.
+      * remove twitter special characters like @ and #.
+      * remove hyphens.
+* Tokenize sentences into words and also remove any punctuation or symbols from the tokens created.
+* Remove any profane words from the tokens created. List of profane words is obtained from the following url: http://www.cs.cmu.edu/~biglou/resources/bad-words.txt.
+* Create bigrams (word pairs that occur together) and trigrams (3 words that occur together) out of the tokens created.
+* create frequency matrix of the unigram (single word tokens), bigrams and trigrams created in above step and extract the top 30 features from the frequency matrix created.
+      
+The text analysis has been done using quanteda package in R as it is useful for fast processing of large text data. Note that the dfm function available in quanteda can perform all the above tasks and acts more like a swiss knife kind function, but we have not used dfm with all options as it then takes lot of time for processing instead we have used tokenizer and token functions and then dfm which results in a much faster operation.
+
+We have also used filehash package to store the text sample data and document frequency data extracted, so that the data can be removed from memory when not in use and can be retrieved again when needed.
+
+The code can be found in point 2. in Appendix section below. In appendix I have listed the unigram,bigram and trigram extraction code for twitter data only the methodology for blog and news data is the same.  
+      
+Below are the top 30 unigrams from twitter, blog and news data
+```{r chunk10, echo=FALSE,warning=FALSE}
+p_twitt1
+p_blog1
+p_news1
+```
+
+Below are the bigrams from twitter, blog and news data
+```{r chunk15,echo=FALSE,warning=FALSE}
+p_twitt2
+p_blog2
+p_news2
+```
+
+Below are trigrams from twitter, blog and news data 
+```{r chunk18,echo=FALSE,warning=FALSE}
+p_twitt3
+p_blog3
+p_news3
+```
+
+It's apparent from above bar charts that while the top 30 unigrams have similar words. the differences are more pronounced in top 30 bigrams and even more in top 30 trigrams for twitter, blog and news data. This suggests to us that there should be more bigram and trigram data from different sources than unigram data for creating training data.
+
+The R code for bar bar charts can be found in point 3. in Appendix section.
+
+###twitter sample word cloud
+```{r chunk25,echo=FALSE,,warning=FALSE}
+
+
+dfm1 <- dbFetch(db,"dfm1_twitt")
+textplot_wordcloud(dfm(dfm1),random.color = TRUE, colors = brewer.pal(6, "Dark2"), scale=c(4, 0.3),min.freq = 1000,random.order = FALSE)
+rm(dfm1)
+```
+
+The next logical step in the capstone project is to build prediction model based on the unigram, bigram and trigram data extracted. For this I plan to proceed in the following steps:
+
+1. Initially start with 5% of the twitter,blog and news data for extracting unigram,bigrams and trigrams for training data. 
+2. calculate the probabilities of word occurrence based on the ngram model.
+2. Apply smoothing techniques to account for missing unigrams, bigrams and trigrams.
+3. Try out the following smoothing techniques on training data:
+    * stupid back off
+    * Katz back off
+    * interpolation
+    
+4. iterate for the algorithms and test for accuracy on multiple sets of random sampled test data.
+5. select the technique which gives best result.
+6. modularize and optimize functions created for steps 1-4.
+7. Increase the training sample and iterate testing with selected algorithm and check what is the the maximum data which can be used within 4 GB laptop RAM constraint.
+8. Save the final training data and prediction model.
+9. Build a shiny app to implement the prediction model.
+10.Test how the app works and above steps to optimize performance (increase/decrease ngram data based on performance).  
+
+## Appendix:
+
+###
+
+1. basic summary
+```{r chunk30,eval= FALSE}
+
+library(LaF)
+
+# twitter file path
+filePathTwitt <- "en_US\\en_US.twitter.txt"
+# blog file path
+filePathBlog <- "en_US\\en_US.blogs.txt"
+# news file path
+filePathNews <- "en_US\\en_US.news.txt"
+
+# files size for twitter file (in MB)
+twitt_file_size <- round((file.info(filePathTwitt)$size)/(1024*1024),2)
+
+# file size for blog file (in MB)
+blog_file_size <- round((file.info(filePathBlog)$size)/(1024*1024),2)
+
+# file size for news file (in MB)
+news_file_size <- round((file.info(filePathNews)$size)/(1024*1024),2)
+
+# text length of twitter file
+text_length_twitt <- determine_nlines(filePathTwitt)
+# text length of blog file
+text_length_blog <- determine_nlines(filePathBlog)
+# text length of news file
+text_length_news <-determine_nlines(filePathNews)
+
+```
+
+2. deriving unigrams, bigrams and trigram from text files.
+```{r chunk40,eval= FALSE}
+
+# load the required libraries
+library(quanteda)
+library(filehash)
+
+# url to download list of profanity words
+profanity_url <- "http://www.cs.cmu.edu/~biglou/resources/bad-words.txt"
+
+# download as csv if file does not exist
+if (!file.exists("ProfaneWords.csv")){
+# download profane wordsas csv file
+download.file(profanity_url, "ProfaneWords.csv")
+}
+
+# get the vector list of Profane words
+ProfaneWords <-  read.csv("ProfaneWords.csv",header = FALSE,stringsAsFactors = FALSE)
+ProfaneWords <- unlist(ProfaneWords$V1)
+
+# SampleText function to do random sampling from provided text
+# connection provides the connection object to the text file
+# samplePercent indicates the percentage sampled (example: pass 0.25 to sample 25% data)
+sampleText <- function(filePath,samplePercent,text_length)
+{
+ 
+  # create file connection
+  con <- file(filePath,"rb")
+  
+  text_sample_raw <- readLines(con,1,encoding = "UTF-8", skipNul = TRUE)
+  j=2
+  for(i in 2:text_length)
+  {
+    if(rbinom(1,1,samplePercent))
+    {
+      
+      text_sample_raw[j] <- readLines(con,1,encoding = "UTF-8", skipNul = TRUE)
+      j <- j+1
+    }
+    else
+    {
+      text_sample_not_used <- readLines(con,1,encoding = "UTF-8", skipNul = TRUE)
+      #rm(text_sample_not_used)
+    }
+    
+  }
+  
+  # close file connection
+  close(con)
+  
+  # return sample text extracted
+  text_sample_raw
+  
+}
+
+# create textCorpusDB database to store computed values
+dbCreate("textCorpusDB")
+
+# initialize db object
+db <- dbInit('textCorpusDB')
+
+# Sample Text Corpus for Twitter
+twitter_text_sample <- sampleText(filePathTwitt,0.05,text_length_twitt)
+
+# Convert to corpus for processing and the remove the original
+# text from memory
+twitter_text_corpus_sample <- corpus(twitter_text_sample)
+rm(twitter_text_sample)
+
+# tokenize corpus first based on sentences
+token1 <- tokenize(news_text_sample,what="sentence",remove_url = TRUE,remove_numbers =   TRUE, remove_punct = TRUE,remove_symbols = TRUE,remove_hyphens=TRUE,remove_twitter=TRUE, simplify=TRUE)
+
+# Convert to tokens,removing punctuation and symbols
+token1 <- tokens(token1,remove_punct = TRUE,remove_symbols = TRUE)
+
+# remove profane words from the tokens created
+token1 <- removeFeatures(token1,ProfaneWords)
+
+# create bigrams and trigrams
+token2 <- tokens_ngrams(token1,n=2)
+token3 <- tokens_ngrams(token1,n=3)
+
+# save the twitter sample corpus
+dbInsert(db,'twitter_text_corpus_sample',twitter_text_corpus_sample)
+rm(twitter_text_corpus_sample)
+
+# Write to db for later retrieval
+dbInsert(db,'token1_twitt',token1)
+dbInsert(db,'token2_twitt',token2)
+dbInsert(db,'token3_twitt',token3)
+
+# extract top 1000 unigram features
+dfm1 <- dfm(token1)
+# remove token from memory
+rm(token1)
+Topfeat_twitt_1 <- topfeatures(dfm1,1000)
+dbInsert(db,'dfm1_twitt',dfm1) # save frequency matrix
+rm(dfm1) # remove from memory
+
+# extract top 1000 bigram features
+dfm2 <- dfm(token2) 
+rm(token2) # remove token from memory
+Topfeat_twitt_2 <- topfeatures(dfm2,1000) 
+dbInsert(db,'dfm2_twitt',dfm2) # save frequency matrix
+rm(dfm2) # remove from memory
+
+# extract top 1000 trigram features
+dfm3 <- dfm(token3)
+rm(token3) # remove token from memory
+Topfeat_twitt_3 <- topfeatures(dfm3,1000)
+dbInsert(db,'dfm3_twitt',dfm3) # save frequency matrix
+rm(dfm3) # remove from memory
+
+```
+
+3. plotting unigram, bigram and trigram frequencies
+```{r chunk50,eval= FALSE}
+
+# load reuired libraries
+library(ggplot2)
+library(RColorBrewer)
+
+# twitter uni gram plot
+Top_Features_Twitt <- data.frame(Word =names(Topfeat_twitt_1),Frequency = Topfeat_twitt_1,row.names=NULL)
+
+p_twitt1 <- ggplot(data=head(Top_Features_Twitt,30),aes(y=Frequency,x=reorder(Word,Frequency)))
+p_twitt1 <- p_twitt1 + geom_bar(stat = "identity")+xlab("Words (unigrams)")+ylab("unigram frequency")+coord_flip()+labs(title="twitter sample top 30 unigram frequency")
+p_twitt1
+
+# twitter bi gram plot
+Top_Features_Twitt <- data.frame(Word =names(Topfeat_twitt_2),Frequency = Topfeat_twitt_2,row.names=NULL)
+
+p_twitt2 <- ggplot(data=head(Top_Features_Twitt,30),aes(y=Frequency,x=reorder(Word,Frequency)))
+p_twitt2 <- p_twitt2 + geom_bar(stat = "identity")+xlab("bigrams")+ylab("bigram frequency")+coord_flip()+labs(title="twitter sample top 30 bigram frequency")
+p_twitt2
+
+# twitter tri gram plot
+Top_Features_Twitt <- data.frame(Word =names(Topfeat_twitt_3),Frequency = Topfeat_twitt_3,row.names=NULL)
+
+p_twitt3 <- ggplot(data=head(Top_Features_Twitt,30),aes(y=Frequency,x=reorder(Word,Frequency)))
+p_twitt3 <- p_twitt3 + geom_bar(stat = "identity")+xlab("trigrams")+ylab("trigram frequency")+coord_flip()+labs(title="twitter sample top 30 trigram frequency")
+p_twitt3
+
+```
